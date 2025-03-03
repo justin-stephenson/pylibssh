@@ -24,7 +24,6 @@ from pylibsshext.errors cimport LibsshSessionException
 from pylibsshext.scp import SCP
 from pylibsshext.sftp import SFTP
 
-
 OPTS_MAP = {
     "fd": libssh.SSH_OPTIONS_FD,
     "host": libssh.SSH_OPTIONS_HOST,
@@ -114,6 +113,8 @@ cdef class Session(object):
             raise MemoryError
         self._opts = {}
         for key in kwargs:
+            if key == "timeout":
+                self._timeout = kwargs[key]
             self.set_ssh_options(key, kwargs[key])
 
     def __dealloc__(self):
@@ -443,7 +444,9 @@ cdef class Session(object):
     def authenticate_password(self, password):
         cdef int rc
         rc = libssh.ssh_userauth_password(self._libssh_session, NULL, password.encode())
-        if rc == libssh.SSH_AUTH_ERROR or rc == libssh.SSH_AUTH_DENIED:
+        if self._timeout and rc == libssh.SSH_AUTH_AGAIN:
+            raise LibsshSessionException("Failed to authenticate with password: %s" % "SSH_AUTH_AGAIN")
+        elif rc == libssh.SSH_AUTH_ERROR or rc == libssh.SSH_AUTH_DENIED:
             raise LibsshSessionException("Failed to authenticate with password: %s" % self._get_session_error_str())
 
     def authenticate_interactive(self, password, expected_prompt=None):
