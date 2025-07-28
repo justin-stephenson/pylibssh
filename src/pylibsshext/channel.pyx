@@ -24,7 +24,7 @@ from libc.string cimport memset
 
 from pylibsshext.errors cimport LibsshChannelException
 from pylibsshext.errors import LibsshChannelReadFailure
-from pylibsshext.session cimport get_libssh_session
+from pylibsshext.session cimport get_libssh_session, get_session_retries
 
 from subprocess import CompletedProcess
 
@@ -63,12 +63,20 @@ cdef class Channel:
 
         if self._libssh_channel is NULL:
             raise MemoryError
-        rc = libssh.ssh_channel_open_session(self._libssh_channel)
 
-        if rc != libssh.SSH_OK:
-            libssh.ssh_channel_free(self._libssh_channel)
-            self._libssh_channel = NULL
-            raise LibsshChannelException("Failed to open_session: [%d]" % rc)
+        retry = get_session_retries(session)
+
+        for attempt in range(retry + 1):
+            rc = libssh.ssh_channel_open_session(self._libssh_channel)
+            if rc == libssh.SSH_OK:
+                break
+            if rc == libssh.SSH_AGAIN and attempt < retry:
+                continue
+            # either SSH_ERROR, or SSH_AGAIN with final attempt
+            if rc != libssh.SSH_OK:
+                libssh.ssh_channel_free(self._libssh_channel)
+                self._libssh_channel = NULL
+                raise LibsshChannelException("Failed to open_session: [%d]" % rc)
 
     def __dealloc__(self):
         if self._libssh_channel is not NULL:
@@ -164,10 +172,18 @@ cdef class Channel:
         if channel is NULL:
             raise MemoryError
 
-        rc = libssh.ssh_channel_open_session(channel)
-        if rc != libssh.SSH_OK:
-            libssh.ssh_channel_free(channel)
-            raise LibsshChannelException("Failed to open_session: [{0}]".format(rc))
+        retry = get_session_retries(self._session)
+
+        for attempt in range(retry + 1):
+            rc = libssh.ssh_channel_open_session(channel)
+            if rc == libssh.SSH_OK:
+                break
+            if rc == libssh.SSH_AGAIN and attempt < retry:
+                continue
+            # either SSH_ERROR, or SSH_AGAIN with final attempt
+            if rc != libssh.SSH_OK:
+                libssh.ssh_channel_free(channel)
+                raise LibsshChannelException("Failed to open_session: [{0}]".format(rc))
 
         result = CompletedProcess(args=command, returncode=-1, stdout=b'', stderr=b'')
 

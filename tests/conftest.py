@@ -84,6 +84,18 @@ def sshd_hostkey_path(sshd_path):
 
 
 @pytest.fixture
+def ssh_session_retries():
+    """Return a ssh session retry value
+
+    :return: SSH Open session retries
+    :rtype: int
+
+    # noqa: DAR101
+    """
+    return 0
+
+
+@pytest.fixture
 def ssh_clientkey_path(sshd_path):
     """Generate an SSH keypair.
 
@@ -127,7 +139,7 @@ def ssh_client_session(ssh_session_connect):
 
 
 @pytest.fixture
-def ssh_session_connect(sshd_addr, ssh_clientkey_path):
+def ssh_session_connect(sshd_addr, ssh_clientkey_path, ssh_session_retries):
     """
     Authenticate existing session object against SSHD with a private SSH key.
 
@@ -140,6 +152,7 @@ def ssh_session_connect(sshd_addr, ssh_clientkey_path):
         ensure_ssh_session_connected,
         sshd_addr=sshd_addr,
         ssh_clientkey_path=ssh_clientkey_path,
+        ssh_session_retries=ssh_session_retries,
     )
 
 
