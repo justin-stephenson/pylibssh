@@ -451,6 +451,8 @@ cdef class Session(object):
     def authenticate_password(self, password):
         cdef int rc
         rc = libssh.ssh_userauth_password(self._libssh_session, NULL, password.encode())
+        if rc == libssh.SSH_AGAIN:
+            rc = libssh.ssh_userauth_password(self._libssh_session, NULL, password.encode())
         if rc == libssh.SSH_AUTH_ERROR or rc == libssh.SSH_AUTH_DENIED:
             raise LibsshSessionException("Failed to authenticate with password: %s" % self._get_session_error_str())
 
