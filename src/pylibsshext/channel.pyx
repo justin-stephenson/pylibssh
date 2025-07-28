@@ -64,7 +64,8 @@ cdef class Channel:
         if self._libssh_channel is NULL:
             raise MemoryError
         rc = libssh.ssh_channel_open_session(self._libssh_channel)
-
+        if rc == libssh.SSH_AGAIN:
+            rc = libssh.ssh_channel_open_session(self._libssh_channel)
         if rc != libssh.SSH_OK:
             libssh.ssh_channel_free(self._libssh_channel)
             self._libssh_channel = NULL
@@ -165,6 +166,8 @@ cdef class Channel:
             raise MemoryError
 
         rc = libssh.ssh_channel_open_session(channel)
+        if rc == libssh.SSH_AGAIN:
+            rc = libssh.ssh_channel_open_session(self._libssh_channel)
         if rc != libssh.SSH_OK:
             libssh.ssh_channel_free(channel)
             raise LibsshChannelException("Failed to open_session: [{0}]".format(rc))
