@@ -8,12 +8,14 @@ import time
 
 import pytest
 
+from pylibsshext.errors import LibsshChannelException
 from pylibsshext.session import Session
 
 
 COMMAND_TIMEOUT = 30
 POLL_EXIT_CODE_TIMEOUT = 5
 POLL_TIMEOUT = 5000
+LOW_TIMEOUT_USEC = 10000
 
 
 @pytest.fixture
@@ -31,6 +33,36 @@ def ssh_channel(ssh_client_session):
         yield chan
     finally:
         chan.close()
+
+
+def test_open_session_timeout(ssh_session_connect):
+    """Test opening a new channel with a low timeout value.
+
+    This generates an exception from ssh_channel_open_session()
+    returning SSH_AGAIN with the usec timeout and default
+    open_session_retries value of 0.
+    """
+    ssh_session = Session()
+    ssh_session_connect(ssh_session)
+    ssh_session.set_ssh_options('timeout_usec', LOW_TIMEOUT_USEC)
+    error_msg = '^Failed to open_session'
+    with pytest.raises(LibsshChannelException, match=error_msg):
+        ssh_session.new_channel()
+    ssh_session.close()
+
+
+def test_open_session_with_retries(ssh_session_connect_retries):
+    """Test with a low timeout value and retries set.
+
+    This sets 'open_session_retries=10' and with the retries
+    ssh_channel_open_session() will succeed.
+    """
+    ssh_session = Session()
+    ssh_session_connect_retries(ssh_session)
+    ssh_session.set_ssh_options('timeout_usec', LOW_TIMEOUT_USEC)
+    ssh_channel = ssh_session.new_channel()
+    ssh_channel.close()
+    ssh_session.close()
 
 
 def exec_second_command(ssh_channel):
